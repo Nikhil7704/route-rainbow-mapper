@@ -1,5 +1,5 @@
 
-import { Graph, Edge, TrafficLevel, trafficMultipliers } from './sampleData';
+import { Graph, Edge, TrafficLevel, trafficMultipliers, ColoredEdge } from './sampleData';
 
 // Dijkstra's Algorithm to calculate shortest paths from source
 export const dijkstra = (
@@ -98,11 +98,12 @@ export const dijkstra = (
 };
 
 // Calculate colored edges based on Dijkstra results
-export interface ColoredEdge extends Edge {
-  color: string;
-  arrivalTime: number;
-  isOnPath?: boolean; // New flag to mark edges on the selected path
-}
+// Remove the redefined ColoredEdge interface since we're importing it now
+// export interface ColoredEdge extends Edge {
+//   color: string;
+//   arrivalTime: number;
+//   isOnPath?: boolean; // New flag to mark edges on the selected path
+// }
 
 export const getColoredEdges = (
   graph: Graph,

@@ -17,6 +17,7 @@ export interface Edge {
 export interface ColoredEdge extends Edge {
   color: string;
   arrivalTime: number;
+  isOnPath?: boolean; // Add this property to fix the TypeScript error
 }
 
 export interface Graph {
