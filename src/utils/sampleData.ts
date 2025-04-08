@@ -13,6 +13,12 @@ export interface Edge {
   weight: number; // Base travel time in minutes
 }
 
+// Add the missing ColoredEdge interface
+export interface ColoredEdge extends Edge {
+  color: string;
+  arrivalTime: number;
+}
+
 export interface Graph {
   nodes: Node[];
   edges: Edge[];

@@ -75,11 +75,23 @@ const GraphVisualization: React.FC<GraphVisualizationProps> = ({
           .attr('stroke-width', 3)
           .append('title')
           .text(() => {
-            if (edge.arrivalTime === -1) {
+            // Fix toFixed error by checking if arrivalTime is valid number
+            if (edge.arrivalTime === undefined || edge.arrivalTime === -1) {
               return `Not on shortest path`;
             }
-            return `Travel time: ${edge.weight.toFixed(1)} min
-Arrival at ${targetNode.name}: ${edge.arrivalTime.toFixed(1)} min`;
+            
+            // Make sure edge.weight exists and is a number before using toFixed
+            const travelTime = typeof edge.weight === 'number' 
+              ? edge.weight.toFixed(1) 
+              : 'Unknown';
+              
+            // Make sure edge.arrivalTime exists and is a number before using toFixed
+            const arrivalTime = typeof edge.arrivalTime === 'number' 
+              ? edge.arrivalTime.toFixed(1) 
+              : 'Unknown';
+              
+            return `Travel time: ${travelTime} min
+Arrival at ${targetNode.name}: ${arrivalTime} min`;
           });
       }
     });
