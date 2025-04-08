@@ -201,17 +201,21 @@ Arrival at ${targetNode.name}: ${arrivalTime} min`;
           .attr('opacity', 1);
       }
 
-      // Draw node circle
-      nodeGroup.append('circle')
+      // Fix the chaining issue by separating the append and transition operations
+      const nodeCircle = nodeGroup.append('circle')
         .attr('class', `node ${node.id === sourceNodeId ? 'selected' : ''}`)
         .attr('r', 20)
         .attr('fill', isSource ? '#9b87f5' : isDestination ? '#ef4444' : isDarkMode ? '#64748b' : '#64748b')
-        .attr('opacity', 0)
-        .transition()
+        .attr('opacity', 0);
+        
+      // Add transition after creating the circle
+      nodeCircle.transition()
         .duration(500)
         .attr('opacity', 1)
-        .on('end', () => setIsAnimating(false))
-        .append('title')
+        .on('end', () => setIsAnimating(false));
+        
+      // Add title separately
+      nodeCircle.append('title')
         .text(`${node.name} (${node.id})`);
 
       // Draw node label
