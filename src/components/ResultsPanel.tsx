@@ -44,7 +44,12 @@ const ResultsPanel: React.FC<ResultsPanelProps> = ({
       <div className="space-y-2">
         {nodes
           .filter(node => node.id !== sourceNodeId)
-          .sort((a, b) => (distances[a.id] || Infinity) - (distances[b.id] || Infinity))
+          .sort((a, b) => {
+            // Handle undefined or Infinity values in the comparison
+            const distA = distances[a.id] === undefined ? Infinity : distances[a.id];
+            const distB = distances[b.id] === undefined ? Infinity : distances[b.id];
+            return distA - distB;
+          })
           .map(node => {
             const distance = distances[node.id];
             const path = paths[node.id];
@@ -55,7 +60,7 @@ const ResultsPanel: React.FC<ResultsPanelProps> = ({
                 <div className="flex justify-between">
                   <span className="font-medium">{node.name} ({node.id})</span>
                   <span className={
-                    distance === Infinity 
+                    !distance || distance === Infinity 
                       ? "text-red-500" 
                       : distance > 15 
                         ? "text-red-500" 
@@ -65,7 +70,9 @@ const ResultsPanel: React.FC<ResultsPanelProps> = ({
                             ? "text-yellow-500" 
                             : "text-green-500"
                   }>
-                    {distance === Infinity ? "No path" : `${distance.toFixed(1)} min`}
+                    {!distance || distance === Infinity 
+                      ? "No path" 
+                      : `${typeof distance === 'number' ? distance.toFixed(1) : 'Unknown'} min`}
                   </span>
                 </div>
                 {hasPath && (
