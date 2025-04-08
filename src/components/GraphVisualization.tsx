@@ -1,3 +1,4 @@
+
 import React, { useEffect, useRef, useState } from 'react';
 import * as d3 from 'd3';
 import { Graph, Node as GraphNode, ColoredEdge, TrafficLevel } from '../utils/sampleData';
@@ -120,6 +121,7 @@ const GraphVisualization: React.FC<GraphVisualizationProps> = ({
     feMerge.append('feMergeNode').attr('in', 'coloredBlur');
     feMerge.append('feMergeNode').attr('in', 'SourceGraphic');
 
+    // Draw all non-path edges first
     coloredEdges.filter(edge => !edge.isOnPath).forEach(edge => {
       const sourceNode = graph.nodes.find(n => n.id === edge.source);
       const targetNode = graph.nodes.find(n => n.id === edge.target);
@@ -139,21 +141,25 @@ const GraphVisualization: React.FC<GraphVisualizationProps> = ({
       }
     });
     
+    // Now draw all path edges with proper animation
     coloredEdges.filter(edge => edge.isOnPath).forEach(edge => {
       const sourceNode = graph.nodes.find(n => n.id === edge.source);
       const targetNode = graph.nodes.find(n => n.id === edge.target);
       
       if (sourceNode && targetNode) {
-        const midX = (sourceNode.x + targetNode.x) / 2;
-        const midY = (sourceNode.y + targetNode.y) / 2;
+        // Calculate the direction for the marker
+        const isForward = sourceNode.id === edge.source;
+        const fromNode = isForward ? sourceNode : targetNode;
+        const toNode = isForward ? targetNode : sourceNode;
         
+        // Create a path with directional arrow
         const line = g.append('path')
           .attr('class', 'link selected-path')
-          .attr('d', `M${sourceNode.x},${sourceNode.y} L${targetNode.x},${targetNode.y}`)
+          .attr('d', `M${fromNode.x},${fromNode.y} L${toNode.x},${toNode.y}`)
           .attr('stroke', edge.color)
           .attr('stroke-width', 4)
           .attr('fill', 'none')
-          .attr('marker-mid', "url(#arrowhead)")
+          .attr('marker-end', "url(#arrowhead)")
           .style('opacity', 0)
           .attr('filter', 'url(#glow)');
           
@@ -164,18 +170,8 @@ const GraphVisualization: React.FC<GraphVisualizationProps> = ({
           .duration(1000)
           .attr('stroke-dashoffset', 0)
           .style('opacity', 1);
-          
-        g.append('circle')
-          .attr('cx', midX)
-          .attr('cy', midY)
-          .attr('r', 3)
-          .attr('fill', edge.color)
-          .attr('opacity', 0)
-          .transition()
-          .duration(1200)
-          .attr('opacity', 1);
-          
-        addEdgeInteractivity(line, edge, sourceNode, targetNode);
+        
+        addEdgeInteractivity(line, edge, fromNode, toNode);
       }
     });
 
@@ -202,8 +198,8 @@ const GraphVisualization: React.FC<GraphVisualizationProps> = ({
             
           tooltip.html(`
             <div class="p-2">
-              <div>From: ${sourceNode.name} (${edge.source})</div>
-              <div>To: ${targetNode.name} (${edge.target})</div>
+              <div>From: ${sourceNode.name} (${sourceNode.id})</div>
+              <div>To: ${targetNode.name} (${targetNode.id})</div>
               <div>Travel time: ${travelTime} min</div>
               <div>Total time: ${arrivalTime} min</div>
               ${edge.isOnPath ? '<div class="font-bold text-purple-500">On selected path</div>' : ''}
