@@ -2,6 +2,8 @@
 import React, { useEffect, useRef, useState } from 'react';
 import * as d3 from 'd3';
 import { Graph, Node as GraphNode, ColoredEdge, TrafficLevel } from '../utils/sampleData';
+import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 interface GraphVisualizationProps {
   graph: Graph;
@@ -23,6 +25,7 @@ const GraphVisualization: React.FC<GraphVisualizationProps> = ({
   const svgRef = useRef<SVGSVGElement | null>(null);
   const [dimensions, setDimensions] = useState({ width: 1000, height: 600 });
   const [isAnimating, setIsAnimating] = useState(false);
+  const [hoveredEdge, setHoveredEdge] = useState<ColoredEdge | null>(null);
 
   // Update dimensions on window resize
   useEffect(() => {
@@ -99,65 +102,19 @@ const GraphVisualization: React.FC<GraphVisualizationProps> = ({
       .attr('to', '1')
       .attr('dur', '3s')
       .attr('repeatCount', 'indefinite');
-
-    // Draw links (edges)
-    coloredEdges.forEach(edge => {
-      const sourceNode = graph.nodes.find(n => n.id === edge.source);
-      const targetNode = graph.nodes.find(n => n.id === edge.target);
       
-      if (sourceNode && targetNode) {
-        // Check if this edge is part of the selected path
-        const isOnSelectedPath = destinationNodeId !== null && edge.arrivalTime !== -1;
-        
-        // Draw edge line
-        const line = g.append('line')
-          .attr('class', 'link')
-          .attr('x1', sourceNode.x)
-          .attr('y1', sourceNode.y)
-          .attr('x2', targetNode.x)
-          .attr('y2', targetNode.y)
-          .attr('stroke', isOnSelectedPath ? edge.color : isDarkMode ? '#4b5563' : '#d1d5db')
-          .attr('stroke-width', isOnSelectedPath ? 4 : 2)
-          .style('stroke-dasharray', isOnSelectedPath ? '0' : '0')
-          .style('opacity', isOnSelectedPath ? 1 : 0.6);
-          
-        // Add glow effect for selected path
-        if (isOnSelectedPath) {
-          line.attr('filter', 'url(#glow)')
-            .attr('stroke-linecap', 'round');
-            
-          // Animate the selected path
-          line.style('stroke-dasharray', '0')
-            .style('stroke-dashoffset', '0')
-            .transition()
-            .duration(500)
-            .ease(d3.easeLinear)
-            .style('opacity', 1);
-        }
-        
-        // Add title for tooltip
-        line.append('title')
-          .text(() => {
-            // Fix toFixed error by checking if arrivalTime is valid number
-            if (edge.arrivalTime === undefined || edge.arrivalTime === -1) {
-              return `Not on shortest path`;
-            }
-            
-            // Make sure edge.weight exists and is a number before using toFixed
-            const travelTime = typeof edge.weight === 'number' 
-              ? edge.weight.toFixed(1) 
-              : 'Unknown';
-              
-            // Make sure edge.arrivalTime exists and is a number before using toFixed
-            const arrivalTime = typeof edge.arrivalTime === 'number' 
-              ? edge.arrivalTime.toFixed(1) 
-              : 'Unknown';
-              
-            return `Travel time: ${travelTime} min
-Arrival at ${targetNode.name}: ${arrivalTime} min`;
-          });
-      }
-    });
+    // Create marker for directional arrows
+    defs.append("marker")
+      .attr("id", "arrowhead")
+      .attr("viewBox", "0 -5 10 10")
+      .attr("refX", 8)
+      .attr("refY", 0)
+      .attr("markerWidth", 4)
+      .attr("markerHeight", 4)
+      .attr("orient", "auto")
+      .append("path")
+      .attr("d", "M0,-5L10,0L0,5")
+      .attr("fill", isDarkMode ? "#9b87f5" : "#9b87f5");
 
     // Filter for glow effect
     const filter = defs.append('filter')
@@ -174,6 +131,114 @@ Arrival at ${targetNode.name}: ${arrivalTime} min`;
     const feMerge = filter.append('feMerge');
     feMerge.append('feMergeNode').attr('in', 'coloredBlur');
     feMerge.append('feMergeNode').attr('in', 'SourceGraphic');
+
+    // Draw links (edges)
+    coloredEdges.forEach(edge => {
+      const sourceNode = graph.nodes.find(n => n.id === edge.source);
+      const targetNode = graph.nodes.find(n => n.id === edge.target);
+      
+      if (sourceNode && targetNode) {
+        // Check if this edge is part of the selected path
+        const isOnSelectedPath = destinationNodeId !== null && edge.isOnPath === true;
+        
+        // Calculate path for curved line if it's part of the selected path
+        const dx = targetNode.x - sourceNode.x;
+        const dy = targetNode.y - sourceNode.y;
+        const dr = Math.sqrt(dx * dx + dy * dy);
+        
+        // Calculate midpoint for potential arrow
+        const midX = (sourceNode.x + targetNode.x) / 2;
+        const midY = (sourceNode.y + targetNode.y) / 2;
+        
+        // Draw edge line
+        let line;
+        
+        if (isOnSelectedPath) {
+          // Use curved lines for selected path to make it distinct
+          line = g.append('path')
+            .attr('class', 'link selected-path')
+            .attr('d', `M${sourceNode.x},${sourceNode.y} L${targetNode.x},${targetNode.y}`)
+            .attr('stroke', edge.color)
+            .attr('stroke-width', 4)
+            .attr('fill', 'none')
+            .attr('marker-mid', "url(#arrowhead)")
+            .style('opacity', 0)
+            .attr('filter', 'url(#glow)');
+            
+          // Animate the selected path with dash array
+          const pathLength = line.node()?.getTotalLength() || 0;
+          line.attr('stroke-dasharray', pathLength)
+            .attr('stroke-dashoffset', pathLength)
+            .transition()
+            .duration(1000)
+            .attr('stroke-dashoffset', 0)
+            .style('opacity', 1);
+            
+          // Add arrow in the middle of the path
+          g.append('circle')
+            .attr('cx', midX)
+            .attr('cy', midY)
+            .attr('r', 3)
+            .attr('fill', edge.color)
+            .attr('opacity', 0)
+            .transition()
+            .duration(1200)
+            .attr('opacity', 1);
+        } else {
+          // Use straight lines for non-selected paths
+          line = g.append('line')
+            .attr('class', 'link')
+            .attr('x1', sourceNode.x)
+            .attr('y1', sourceNode.y)
+            .attr('x2', targetNode.x)
+            .attr('y2', targetNode.y)
+            .attr('stroke', isDarkMode ? '#4b5563' : '#d1d5db')
+            .attr('stroke-width', 2)
+            .style('opacity', 0.4);
+        }
+        
+        // Add interactivity to the line
+        line.on('mouseover', function(event) {
+          d3.select(this)
+            .transition()
+            .duration(200)
+            .attr('stroke-width', isOnSelectedPath ? 6 : 3)
+            .style('opacity', 1);
+            
+          // Create tooltip with edge information
+          const tooltip = d3.select('#edge-tooltip');
+          tooltip.style('display', 'block')
+            .style('left', (event.pageX + 10) + 'px')
+            .style('top', (event.pageY - 20) + 'px');
+            
+          const travelTime = typeof edge.weight === 'number' 
+            ? edge.weight.toFixed(1) 
+            : 'Unknown';
+              
+          const arrivalTime = typeof edge.arrivalTime === 'number' && edge.arrivalTime !== -1
+            ? edge.arrivalTime.toFixed(1) 
+            : 'N/A';
+            
+          tooltip.html(`
+            <div class="p-2">
+              <div>From: ${sourceNode.name} (${edge.source})</div>
+              <div>To: ${targetNode.name} (${edge.target})</div>
+              <div>Travel time: ${travelTime} min</div>
+              <div>Total time: ${arrivalTime} min</div>
+            </div>
+          `);
+        })
+        .on('mouseout', function() {
+          d3.select(this)
+            .transition()
+            .duration(200)
+            .attr('stroke-width', isOnSelectedPath ? 4 : 2)
+            .style('opacity', isOnSelectedPath ? 1 : 0.4);
+            
+          d3.select('#edge-tooltip').style('display', 'none');
+        });
+      }
+    });
 
     // Draw nodes
     graph.nodes.forEach(node => {
@@ -251,7 +316,7 @@ Arrival at ${targetNode.name}: ${arrivalTime} min`;
   }, [graph, coloredEdges, sourceNodeId, destinationNodeId, dimensions, onNodeClick, isDarkMode]);
 
   return (
-    <div className={`w-full h-full overflow-hidden ${isDarkMode ? 'bg-gray-800' : 'bg-white'}`}>
+    <div className={`w-full h-full overflow-hidden relative ${isDarkMode ? 'bg-gray-800' : 'bg-white'}`}>
       {isAnimating && (
         <div className="absolute top-2 right-2 bg-primary text-white px-2 py-1 rounded text-xs">
           Calculating routes...
@@ -263,6 +328,15 @@ Arrival at ${targetNode.name}: ${arrivalTime} min`;
         height={dimensions.height}
         className="w-full h-full"
         style={{ background: isDarkMode ? '#1f2937' : 'white' }}
+      />
+      
+      {/* Tooltip for edge hover */}
+      <div 
+        id="edge-tooltip" 
+        className={`absolute hidden p-2 rounded shadow-lg text-xs z-10 ${
+          isDarkMode ? 'bg-gray-800 text-white' : 'bg-white text-gray-800'
+        }`} 
+        style={{ pointerEvents: 'none' }}
       />
     </div>
   );

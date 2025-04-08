@@ -101,13 +101,15 @@ export const dijkstra = (
 export interface ColoredEdge extends Edge {
   color: string;
   arrivalTime: number;
+  isOnPath?: boolean; // New flag to mark edges on the selected path
 }
 
 export const getColoredEdges = (
   graph: Graph,
   sourceId: string,
   trafficLevel: TrafficLevel,
-  getColorForTime: (time: number) => string
+  getColorForTime: (time: number) => string,
+  destinationId: string | null = null
 ): ColoredEdge[] => {
   // Get shortest paths
   const { distances, paths } = dijkstra(graph, sourceId, trafficLevel);
@@ -129,6 +131,9 @@ export const getColoredEdges = (
   
   // Create colored edges
   const coloredEdges: ColoredEdge[] = [];
+  
+  // If we have a destination, we'll only highlight that specific path
+  const pathToHighlight = destinationId && paths[destinationId] ? paths[destinationId] : null;
   
   // For each node except the source
   for (const node of graph.nodes) {
@@ -157,16 +162,41 @@ export const getColoredEdges = (
       
       if (!originalEdge) continue;
       
+      // Check if this edge is on the highlighted path
+      const isOnHighlightedPath = pathToHighlight && 
+        i < pathToHighlight.length - 1 && 
+        pathToHighlight.includes(source) && 
+        pathToHighlight.includes(target) &&
+        // Make sure they're adjacent in the path
+        pathToHighlight.findIndex(id => id === source) === pathToHighlight.findIndex(id => id === target) - 1;
+      
+      // Only highlight edges that are on the path to the selected destination
+      const shouldHighlight = !destinationId || 
+        (destinationId && node.id === destinationId) || 
+        isOnHighlightedPath;
+      
       // Create colored edge
       const coloredEdge: ColoredEdge = {
         source: source,
         target: target,
         weight: originalEdge.weight,
         color: getColorForTime(arrivalTime),
-        arrivalTime: arrivalTime
+        arrivalTime: arrivalTime,
+        isOnPath: shouldHighlight
       };
       
-      coloredEdges.push(coloredEdge);
+      // Don't add duplicate edges
+      const existingEdgeIndex = coloredEdges.findIndex(
+        e => (e.source === source && e.target === target) ||
+             (e.source === target && e.target === source)
+      );
+      
+      if (existingEdgeIndex === -1) {
+        coloredEdges.push(coloredEdge);
+      } else if (shouldHighlight) {
+        // If this is a highlighted path, it should replace a non-highlighted one
+        coloredEdges[existingEdgeIndex] = coloredEdge;
+      }
     }
   }
   
@@ -181,7 +211,8 @@ export const getColoredEdges = (
       coloredEdges.push({
         ...edge,
         color: "#d1d5db", // Gray for unused edges
-        arrivalTime: -1
+        arrivalTime: -1,
+        isOnPath: false
       });
     }
   }

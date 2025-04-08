@@ -47,7 +47,8 @@ const Index: React.FC = () => {
       sampleGraph, 
       sourceNodeId, 
       trafficLevel, 
-      getColorForTime
+      getColorForTime,
+      destinationNodeId
     );
     
     // Update state
