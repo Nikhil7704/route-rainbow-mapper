@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import GraphVisualization from '../components/GraphVisualization';
 import ControlPanel from '../components/ControlPanel';
@@ -21,7 +20,7 @@ const Index: React.FC = () => {
   
   // State for computed data
   const [coloredEdges, setColoredEdges] = useState(
-    getColoredEdges(sampleGraph, sourceNodeId, trafficLevel, getColorForTime)
+    getColoredEdges(sampleGraph, sourceNodeId, trafficLevel, getColorForTime, null)
   );
   const [distances, setDistances] = useState<Record<string, number>>({});
   const [paths, setPaths] = useState<Record<string, string[]>>({});

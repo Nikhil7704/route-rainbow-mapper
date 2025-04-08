@@ -1,4 +1,3 @@
-
 import { Graph, Edge, TrafficLevel, trafficMultipliers, ColoredEdge } from './sampleData';
 
 // Dijkstra's Algorithm to calculate shortest paths from source
@@ -98,13 +97,6 @@ export const dijkstra = (
 };
 
 // Calculate colored edges based on Dijkstra results
-// Remove the redefined ColoredEdge interface since we're importing it now
-// export interface ColoredEdge extends Edge {
-//   color: string;
-//   arrivalTime: number;
-//   isOnPath?: boolean; // New flag to mark edges on the selected path
-// }
-
 export const getColoredEdges = (
   graph: Graph,
   sourceId: string,
@@ -133,89 +125,68 @@ export const getColoredEdges = (
   // Create colored edges
   const coloredEdges: ColoredEdge[] = [];
   
-  // If we have a destination, we'll only highlight that specific path
-  const pathToHighlight = destinationId && paths[destinationId] ? paths[destinationId] : null;
+  // Create a set of edges that are on the highlighted path
+  const pathEdges = new Set<string>();
   
-  // For each node except the source
-  for (const node of graph.nodes) {
-    if (node.id === sourceId || !paths[node.id].length) continue;
+  // If we have a destination, mark all edges on that path
+  if (destinationId && paths[destinationId]?.length > 0) {
+    const pathToHighlight = paths[destinationId];
     
-    // Get the path to this node
-    const path = paths[node.id];
-    
-    // For each segment in the path
-    for (let i = 0; i < path.length - 1; i++) {
-      const source = path[i];
-      const target = path[i + 1];
+    // Mark edges on the path
+    for (let i = 0; i < pathToHighlight.length - 1; i++) {
+      const source = pathToHighlight[i];
+      const target = pathToHighlight[i + 1];
       
-      // Calculate arrival time at the target
-      const edgeKey = `${source}-${target}`;
-      const edgeTime = edgeWeights[edgeKey];
-      
-      // Time from source to target node
-      const arrivalTime = distances[target];
-      
-      // Find the original edge
-      const originalEdge = graph.edges.find(
-        e => (e.source === source && e.target === target) || 
-             (e.source === target && e.target === source)
-      );
-      
-      if (!originalEdge) continue;
-      
-      // Check if this edge is on the highlighted path
-      const isOnHighlightedPath = pathToHighlight && 
-        i < pathToHighlight.length - 1 && 
-        pathToHighlight.includes(source) && 
-        pathToHighlight.includes(target) &&
-        // Make sure they're adjacent in the path
-        pathToHighlight.findIndex(id => id === source) === pathToHighlight.findIndex(id => id === target) - 1;
-      
-      // Only highlight edges that are on the path to the selected destination
-      const shouldHighlight = !destinationId || 
-        (destinationId && node.id === destinationId) || 
-        isOnHighlightedPath;
-      
-      // Create colored edge
-      const coloredEdge: ColoredEdge = {
-        source: source,
-        target: target,
-        weight: originalEdge.weight,
-        color: getColorForTime(arrivalTime),
-        arrivalTime: arrivalTime,
-        isOnPath: shouldHighlight
-      };
-      
-      // Don't add duplicate edges
-      const existingEdgeIndex = coloredEdges.findIndex(
-        e => (e.source === source && e.target === target) ||
-             (e.source === target && e.target === source)
-      );
-      
-      if (existingEdgeIndex === -1) {
-        coloredEdges.push(coloredEdge);
-      } else if (shouldHighlight) {
-        // If this is a highlighted path, it should replace a non-highlighted one
-        coloredEdges[existingEdgeIndex] = coloredEdge;
-      }
+      // Add both directions to the set (we don't know which way the edge is stored)
+      pathEdges.add(`${source}-${target}`);
+      pathEdges.add(`${target}-${source}`);
     }
   }
   
-  // Add edges not in paths with default color (gray)
+  // For each edge, determine if it's on the path
   for (const edge of graph.edges) {
-    const isInPath = coloredEdges.some(
-      e => (e.source === edge.source && e.target === edge.target) ||
-           (e.source === edge.target && e.target === edge.source)
-    );
+    const edgeKey1 = `${edge.source}-${edge.target}`;
+    const edgeKey2 = `${edge.target}-${edge.source}`;
     
-    if (!isInPath) {
-      coloredEdges.push({
-        ...edge,
-        color: "#d1d5db", // Gray for unused edges
-        arrivalTime: -1,
-        isOnPath: false
-      });
+    const isOnHighlightedPath = pathEdges.has(edgeKey1) || pathEdges.has(edgeKey2);
+    
+    // Determine the color and arrival time for this edge
+    let color = "#d1d5db"; // Default gray for unused edges
+    let arrivalTime = -1;
+    
+    // If the edge connects to the source, calculate arrival time
+    if (edge.source === sourceId || edge.target === sourceId) {
+      const neighbor = edge.source === sourceId ? edge.target : edge.source;
+      arrivalTime = distances[neighbor];
+      color = getColorForTime(arrivalTime);
+    } 
+    // If the edge is part of a path but not connected to source
+    else if (isOnHighlightedPath && destinationId) {
+      // Find where this edge occurs in the path
+      const path = paths[destinationId];
+      for (let i = 0; i < path.length - 1; i++) {
+        const source = path[i];
+        const target = path[i + 1];
+        
+        if ((edge.source === source && edge.target === target) || 
+            (edge.source === target && edge.target === source)) {
+          // For paths, use the arrival time at the target node
+          arrivalTime = distances[target];
+          color = getColorForTime(arrivalTime);
+          break;
+        }
+      }
     }
+    
+    // Create the colored edge
+    const coloredEdge: ColoredEdge = {
+      ...edge,
+      color: isOnHighlightedPath ? color : "#d1d5db", // Gray for unused edges
+      arrivalTime: arrivalTime,
+      isOnPath: isOnHighlightedPath
+    };
+    
+    coloredEdges.push(coloredEdge);
   }
   
   return coloredEdges;
