@@ -121,7 +121,7 @@ const Index: React.FC = () => {
     <div className={`min-h-screen p-4 md:p-8 transition-colors duration-300 ${isDarkMode ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-800'}`}>
       <header className="mb-6 flex flex-col md:flex-row justify-between items-center">
         <div className="text-center md:text-left">
-          <h1 className={`text-3xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-800'}`}>Route Rainbow Mapper</h1>
+          <h1 className={`text-3xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-800'}`}>Route Mapper</h1>
           <p className={`mt-2 ${isDarkMode ? 'text-gray-300' : 'text-gray-600'}`}>
             Visualize travel times with color-coded routes
           </p>
@@ -212,7 +212,7 @@ const Index: React.FC = () => {
       </div>
       
       <footer className={`mt-8 text-center text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-        <p>Route Rainbow Mapper - Based on Dijkstra's Algorithm</p>
+        <p>Route Mapper - Based on Dijkstra's Algorithm</p>
       </footer>
     </div>
   );
