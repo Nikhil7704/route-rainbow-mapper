@@ -37,6 +37,21 @@ const Index: React.FC = () => {
     setRandomGraph(newGraph);
     setSourceNodeId(newGraph.nodes[0]?.id || 'A');
     setDestinationNodeId(null);
+    
+    // Reset computed data for the new graph
+    const { distances, paths } = dijkstra(newGraph, newGraph.nodes[0]?.id || 'A', trafficLevel);
+    setDistances(distances);
+    setPaths(paths);
+    
+    // Reset colored edges for the new graph
+    const edges = getColoredEdges(
+      newGraph, 
+      newGraph.nodes[0]?.id || 'A', 
+      trafficLevel, 
+      getColorForTime,
+      null
+    );
+    setColoredEdges(edges);
   };
   
   // Update visualization when inputs change

@@ -149,31 +149,19 @@ export const getColoredEdges = (
     
     // Create a set to track edges that are on the highlighted path
     const pathEdges = new Set<string>();
-    const pathDirections = new Map<string, boolean>(); // track edge directions on path
     
     // If we have a destination, identify all edges on that path
     if (destinationId && paths[destinationId]?.length > 1) {
-      const path = paths[destinationId];
+      const pathNodes = paths[destinationId];
       
       // Mark each segment along the path
-      for (let i = 0; i < path.length - 1; i++) {
-        const source = path[i];
-        const target = path[i + 1];
+      for (let i = 0; i < pathNodes.length - 1; i++) {
+        const source = pathNodes[i];
+        const target = pathNodes[i + 1];
         
-        // Skip if source or target doesn't exist in the graph
-        if (!graph.nodes.some(n => n.id === source) || !graph.nodes.some(n => n.id === target)) {
-          console.warn(`getColoredEdges: Path segment ${source}->${target} contains nodes not in graph`);
-          continue;
-        }
-        
-        // Add this specific directed segment to the path set
-        const edgeKey = `${source}-${target}`;
-        pathEdges.add(edgeKey);
-        pathEdges.add(`${target}-${source}`); // Add reverse direction for matching
-        
-        // Mark this edge's direction on the path (true = source→target is forward)
-        pathDirections.set(edgeKey, true);
-        pathDirections.set(`${target}-${source}`, false);
+        // Add both directions to the path set (since edges are bidirectional)
+        pathEdges.add(`${source}-${target}`);
+        pathEdges.add(`${target}-${source}`);
       }
     }
     
@@ -181,36 +169,29 @@ export const getColoredEdges = (
     const coloredEdges: ColoredEdge[] = [];
     
     for (const edge of graph.edges) {
-      // Verify both source and target nodes exist in the graph
-      const sourceExists = graph.nodes.some(n => n.id === edge.source);
-      const targetExists = graph.nodes.some(n => n.id === edge.target);
-      
-      if (!sourceExists || !targetExists) {
-        console.warn(`getColoredEdges: Edge ${edge.source}->${edge.target} contains nodes not in graph`);
-        continue;
-      }
-      
       // Check if this edge is on any highlighted path
-      const forwardKey = `${edge.source}-${edge.target}`;
-      const reverseKey = `${edge.target}-${edge.source}`;
-      const isOnPath = pathEdges.has(forwardKey) || pathEdges.has(reverseKey);
+      const edgeKey1 = `${edge.source}-${edge.target}`;
+      const edgeKey2 = `${edge.target}-${edge.source}`;
+      const isOnPath = pathEdges.has(edgeKey1) || pathEdges.has(edgeKey2);
       
       // Determine arrival time at the end of this edge
       let arrivalTime = -1;
       let color = "#d1d5db"; // Default color for unused edges
       
+      // For edges on the selected path to destination
       if (isOnPath && destinationId) {
-        // For edges on the path, determine direction and arrival time
-        const isForward = pathDirections.get(forwardKey) === true;
-        const target = isForward ? edge.target : edge.source;
+        // Get the target node (the one farther from source)
+        const sourceDistance = distances[edge.source] || Infinity;
+        const targetDistance = distances[edge.target] || Infinity;
+        const farther = sourceDistance > targetDistance ? edge.source : edge.target;
         
-        // Arrival time is the total distance to that node
-        arrivalTime = distances[target];
+        // Use the arrival time at the farther node
+        arrivalTime = distances[farther];
         if (typeof arrivalTime === 'number' && arrivalTime !== Infinity) {
           color = getColorForTime(arrivalTime);
         }
       } 
-      // For edges from source that aren't on the main path
+      // For edges directly connected to source that aren't on the main path
       else if (edge.source === sourceId || edge.target === sourceId) {
         const neighbor = edge.source === sourceId ? edge.target : edge.source;
         arrivalTime = distances[neighbor];
@@ -223,7 +204,7 @@ export const getColoredEdges = (
       const coloredEdge: ColoredEdge = {
         ...edge,
         color: isOnPath ? color : "#d1d5db", // Gray for unused edges
-        arrivalTime: arrivalTime,
+        arrivalTime: isOnPath ? arrivalTime : -1,
         isOnPath: isOnPath
       };
       

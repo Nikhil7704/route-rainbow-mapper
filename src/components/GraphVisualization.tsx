@@ -13,8 +13,6 @@ import {
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 import { Graph, ColoredEdge, Node as GraphNode } from '../utils/sampleData';
-import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 interface GraphVisualizationProps {
   graph: Graph;
@@ -55,7 +53,7 @@ const GraphVisualization: React.FC<GraphVisualizationProps> = ({
         style: {
           background: isSource ? '#9b87f5' : isDestination ? '#ef4444' : isDarkMode ? '#475569' : '#64748b',
           color: 'white',
-          border: '2px solid',
+          border: '3px solid',
           borderColor: isSource ? '#9b87f5' : isDestination ? '#ef4444' : 'transparent',
           width: 120,
           height: 60,
@@ -64,8 +62,9 @@ const GraphVisualization: React.FC<GraphVisualizationProps> = ({
           justifyContent: 'center',
           alignItems: 'center',
           fontWeight: isSource || isDestination ? 'bold' : 'normal',
-          boxShadow: isDarkMode ? '0 4px 6px -1px rgba(0, 0, 0, 0.5)' : '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
-        }
+          boxShadow: isDarkMode ? '0 4px 8px rgba(0, 0, 0, 0.5)' : '0 4px 6px rgba(0, 0, 0, 0.1)'
+        },
+        className: `node ${isSource ? 'source' : ''} ${isDestination ? 'destination' : ''}`
       };
     });
   }, [graph.nodes, sourceNodeId, destinationNodeId, isDarkMode]);
@@ -77,7 +76,8 @@ const GraphVisualization: React.FC<GraphVisualizationProps> = ({
     return coloredEdges.map((edge, index) => {
       const isOnPath = edge.isOnPath || false;
       const edgeColor = isOnPath ? edge.color : isDarkMode ? '#64748b' : '#cbd5e1';
-      const edgeWidth = isOnPath ? 3 : 2;
+      const edgeWidth = isOnPath ? 4 : 2; // Make the edges thicker as requested
+      const edgeOpacity = isOnPath ? 1 : isDarkMode ? 0.6 : 0.5;
       
       return {
         id: `e-${edge.source}-${edge.target}`,
@@ -87,7 +87,7 @@ const GraphVisualization: React.FC<GraphVisualizationProps> = ({
         style: { 
           stroke: edgeColor,
           strokeWidth: edgeWidth,
-          opacity: isOnPath ? 1 : isDarkMode ? 0.7 : 0.6
+          opacity: edgeOpacity
         },
         markerEnd: {
           type: MarkerType.ArrowClosed,
@@ -100,7 +100,8 @@ const GraphVisualization: React.FC<GraphVisualizationProps> = ({
           weight: edge.weight,
           arrivalTime: edge.arrivalTime,
           isOnPath: edge.isOnPath
-        }
+        },
+        className: isOnPath ? 'edge-on-path' : 'edge'
       };
     });
   }, [coloredEdges, isDarkMode]);
@@ -125,8 +126,8 @@ const GraphVisualization: React.FC<GraphVisualizationProps> = ({
     setHoveredEdge(null);
   }, []);
 
-  // Custom edge label
-  const EdgeTooltip = ({ x, y, data }: any) => {
+  // Custom edge tooltip
+  const EdgeTooltip = () => {
     if (!hoveredEdge) return null;
     
     const sourceNode = graph.nodes.find(n => n.id === hoveredEdge.source);
@@ -149,9 +150,9 @@ const GraphVisualization: React.FC<GraphVisualizationProps> = ({
           isDarkMode ? 'bg-gray-800 text-white border border-gray-700' : 'bg-white text-gray-800 border border-gray-200'
         }`}
         style={{ 
-          left: x, 
-          top: y - 40, 
-          transform: 'translate(-50%, -100%)',
+          left: '50%', 
+          top: '10%', 
+          transform: 'translateX(-50%)',
           pointerEvents: 'none'
         }}
       >
@@ -178,7 +179,7 @@ const GraphVisualization: React.FC<GraphVisualizationProps> = ({
       style={{ height: '600px' }}
     >
       {isAnimating && (
-        <div className="absolute top-2 right-2 bg-primary text-white px-3 py-1.5 rounded-full text-xs z-10 font-medium animate-pulse-opacity">
+        <div className="absolute top-2 right-2 bg-primary text-white px-3 py-1.5 rounded-full text-xs z-10 font-medium animate-pulse">
           Calculating routes...
         </div>
       )}

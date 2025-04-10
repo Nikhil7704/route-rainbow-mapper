@@ -21,7 +21,7 @@ const Legend: React.FC<LegendProps> = ({ isDarkMode = false }) => {
           return (
             <div key={index} className="flex items-center">
               <div 
-                className="w-6 h-6 rounded mr-2 shadow-sm border" 
+                className="w-8 h-4 rounded mr-2 shadow-sm border" 
                 style={{ 
                   backgroundColor: bucket.color,
                   borderColor: isDarkMode ? 'rgba(255, 255, 255, 0.2)' : 'rgba(0, 0, 0, 0.1)'
@@ -39,7 +39,7 @@ const Legend: React.FC<LegendProps> = ({ isDarkMode = false }) => {
         
         <div className="flex items-center mt-1">
           <div 
-            className="w-6 h-6 rounded mr-2 shadow-sm border" 
+            className="w-8 h-4 rounded mr-2 shadow-sm border" 
             style={{ 
               backgroundColor: isDarkMode ? '#64748b' : '#d1d5db',
               borderColor: isDarkMode ? 'rgba(255, 255, 255, 0.2)' : 'rgba(0, 0, 0, 0.1)'
@@ -52,6 +52,7 @@ const Legend: React.FC<LegendProps> = ({ isDarkMode = false }) => {
       <div className={`mt-4 text-xs ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
         <p>Colors represent total travel time from the starting location to each destination.</p>
         <p className="mt-1">Rush hour (7-9 AM, 4-6 PM) adds 20% to travel times.</p>
+        <p className="mt-1">Selected routes are shown with thicker, animated edges.</p>
       </div>
     </div>
   );
