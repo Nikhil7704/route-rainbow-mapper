@@ -1,4 +1,3 @@
-
 import React, { useEffect, useRef, useState } from 'react';
 import * as d3 from 'd3';
 import { Graph, Node as GraphNode, ColoredEdge, TrafficLevel } from '../utils/sampleData';
@@ -127,8 +126,16 @@ const GraphVisualization: React.FC<GraphVisualizationProps> = ({
     feMerge.append('feMergeNode').attr('in', 'coloredBlur');
     feMerge.append('feMergeNode').attr('in', 'SourceGraphic');
 
+    // Create a defensive copy of coloredEdges to avoid mutation
+    const safeColoredEdges = [...coloredEdges].filter(edge => {
+      // Make sure the edge has valid nodes in the graph
+      const sourceExists = graph.nodes.some(n => n.id === edge.source);
+      const targetExists = graph.nodes.some(n => n.id === edge.target);
+      return sourceExists && targetExists;
+    });
+    
     // First draw all non-path edges as background
-    coloredEdges.filter(edge => !edge.isOnPath).forEach(edge => {
+    safeColoredEdges.filter(edge => !edge.isOnPath).forEach(edge => {
       const sourceNode = graph.nodes.find(n => n.id === edge.source);
       const targetNode = graph.nodes.find(n => n.id === edge.target);
       
@@ -150,16 +157,14 @@ const GraphVisualization: React.FC<GraphVisualizationProps> = ({
     });
     
     // Get only path edges that actually have valid nodes in the graph
-    const pathEdges = coloredEdges.filter(edge => {
-      const sourceExists = graph.nodes.some(n => n.id === edge.source);
-      const targetExists = graph.nodes.some(n => n.id === edge.target);
-      return edge.isOnPath && sourceExists && targetExists;
+    const pathEdges = safeColoredEdges.filter(edge => {
+      return edge.isOnPath === true;
     });
     
     // Safely sort paths by arrival time (handling undefined/null values)
     const sortedPathEdges = [...pathEdges].sort((a, b) => {
-      const timeA = a.arrivalTime ?? Infinity;
-      const timeB = b.arrivalTime ?? Infinity;
+      const timeA = typeof a.arrivalTime === 'number' ? a.arrivalTime : Infinity;
+      const timeB = typeof b.arrivalTime === 'number' ? b.arrivalTime : Infinity;
       return timeA - timeB;
     });
       
@@ -169,11 +174,11 @@ const GraphVisualization: React.FC<GraphVisualizationProps> = ({
     if (destinationNodeId && sourceNodeId) {
       let currentNodeId = sourceNodeId;
       const processedEdges = new Set<string>();
-      const maxIterations = sortedPathEdges.length * 2; // Safety limit to prevent infinite loops
+      const maxIterations = Math.min(100, sortedPathEdges.length * 2); // Safety limit to prevent infinite loops
       let iterations = 0;
       
       // Try to find a path from source to destination
-      while (currentNodeId !== destinationNodeId && iterations < maxIterations) {
+      while (currentNodeId !== destinationNodeId && iterations < maxIterations && currentNodeId) {
         iterations++;
         
         // Find the next edge in the path that hasn't been processed yet
@@ -219,9 +224,9 @@ const GraphVisualization: React.FC<GraphVisualizationProps> = ({
           if (index > 0) {
             const prevEdge = selectedPath[index - 1];
             const prevToNodeId = prevEdge.source === prevEdge.target ? prevEdge.source : 
-                                 (prevEdge.source === sourceNode.id || prevEdge.target === sourceNode.id)
-                                  ? (prevEdge.source === sourceNode.id ? prevEdge.target : prevEdge.source)
-                                  : (prevEdge.target === targetNode.id ? prevEdge.source : prevEdge.target);
+                                (prevEdge.source === sourceNode.id || prevEdge.target === sourceNode.id)
+                                ? (prevEdge.source === sourceNode.id ? prevEdge.target : prevEdge.source)
+                                : (prevEdge.target === targetNode.id ? prevEdge.source : prevEdge.target);
             
             // If the previous edge ends at this source node, direction is source→target
             if (prevToNodeId === sourceNode.id) {
