@@ -123,11 +123,19 @@ const Index: React.FC = () => {
               max="20" 
               value={nodeCount} 
               onChange={(e) => setNodeCount(Math.min(20, Math.max(3, parseInt(e.target.value) || 3)))}
-              className="w-16 px-2 py-1 rounded border"
+              className={`w-16 px-2 py-1 rounded border ${
+                isDarkMode 
+                  ? 'bg-gray-700 border-gray-600 text-white' 
+                  : 'bg-white border-gray-300'
+              }`}
             />
             <button
               onClick={handleGenerateGraph}
-              className="px-3 py-1 bg-blue-500 text-white rounded hover:bg-blue-600"
+              className={`px-3 py-1 rounded ${
+                isDarkMode 
+                  ? 'bg-primary hover:bg-primary/90 text-white' 
+                  : 'bg-blue-500 hover:bg-blue-600 text-white'
+              }`}
             >
               Generate
             </button>
@@ -135,7 +143,11 @@ const Index: React.FC = () => {
           
           <button
             onClick={toggleDarkMode}
-            className={`px-4 py-2 rounded-full ${isDarkMode ? 'bg-gray-700 text-yellow-300' : 'bg-gray-200 text-gray-700'} transition-colors`}
+            className={`px-4 py-2 rounded-full transition-colors ${
+              isDarkMode 
+                ? 'bg-gray-700 text-yellow-300 hover:bg-gray-600' 
+                : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+            }`}
           >
             {isDarkMode ? '☀️ Light' : '🌙 Dark'}
           </button>
@@ -167,6 +179,7 @@ const Index: React.FC = () => {
             trafficLevel={trafficLevel}
             timeOfDay={timeOfDay}
             onDestinationSelect={handleDestinationSelect}
+            isDarkMode={isDarkMode}
           />
         </div>
         

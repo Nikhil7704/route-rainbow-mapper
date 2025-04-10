@@ -13,6 +13,7 @@ interface ResultsPanelProps {
   trafficLevel: TrafficLevel;
   timeOfDay: number; // 0-23 for hour of day
   onDestinationSelect: (nodeId: string) => void;
+  isDarkMode?: boolean;
 }
 
 const ResultsPanel: React.FC<ResultsPanelProps> = ({
@@ -23,7 +24,8 @@ const ResultsPanel: React.FC<ResultsPanelProps> = ({
   paths,
   trafficLevel,
   timeOfDay,
-  onDestinationSelect
+  onDestinationSelect,
+  isDarkMode = false
 }) => {
   // Get source node name
   const sourceNode = nodes.find(node => node.id === sourceNodeId);
@@ -50,13 +52,13 @@ const ResultsPanel: React.FC<ResultsPanelProps> = ({
     : 0;
   
   return (
-    <div className="bg-white p-5 rounded-lg shadow-md">
-      <h3 className="font-semibold text-lg mb-3">Travel Time Results</h3>
+    <div className={`p-5 rounded-lg shadow-md ${isDarkMode ? 'bg-gray-800 border border-gray-700 text-white' : 'bg-white'}`}>
+      <h3 className={`font-semibold text-lg mb-3 ${isDarkMode ? 'text-white' : ''}`}>Travel Time Results</h3>
       
       <div className="mb-4 space-y-3">
         <div className="flex items-center gap-2">
           <MapPin size={18} className="text-primary" />
-          <p className="text-sm">
+          <p className={`text-sm ${isDarkMode ? 'text-gray-200' : ''}`}>
             <span className="font-medium">From:</span> {sourceName} ({sourceNodeId})
           </p>
         </div>
@@ -64,38 +66,38 @@ const ResultsPanel: React.FC<ResultsPanelProps> = ({
         {destinationNodeId && (
           <div className="flex items-center gap-2">
             <MapPin size={18} className="text-red-500" />
-            <p className="text-sm">
+            <p className={`text-sm ${isDarkMode ? 'text-gray-200' : ''}`}>
               <span className="font-medium">To:</span> {destinationName} ({destinationNodeId})
             </p>
           </div>
         )}
         
         <div className="flex items-center gap-2">
-          <Timer size={18} className="text-gray-600" />
-          <p className="text-sm">
+          <Timer size={18} className={isDarkMode ? 'text-gray-400' : 'text-gray-600'} />
+          <p className={`text-sm ${isDarkMode ? 'text-gray-200' : ''}`}>
             <span className="font-medium">Time of Day:</span> {formattedTime}
-            {isRushHour && <span className="ml-1 text-xs text-amber-600 font-semibold">(Rush Hour)</span>}
+            {isRushHour && <span className="ml-1 text-xs text-amber-500 font-semibold">(Rush Hour)</span>}
           </p>
         </div>
         
-        <p className="text-sm">
+        <p className={`text-sm ${isDarkMode ? 'text-gray-200' : ''}`}>
           <span className="font-medium">Traffic Conditions:</span> {trafficDescription}
         </p>
       </div>
       
       {destinationNodeId && (
-        <div className="mb-5 p-3 bg-gray-50 rounded-md">
+        <div className={`mb-5 p-3 rounded-md ${isDarkMode ? 'bg-gray-700' : 'bg-gray-50'}`}>
           <div className="flex justify-between mb-1">
-            <span className="text-sm font-medium">Route Speed</span>
+            <span className={`text-sm font-medium ${isDarkMode ? 'text-gray-200' : ''}`}>Route Speed</span>
             {typeof distances[destinationNodeId] === 'number' && distances[destinationNodeId] !== Infinity && (
-              <span className="text-sm font-medium">
+              <span className={`text-sm font-medium ${isDarkMode ? 'text-gray-200' : ''}`}>
                 {distances[destinationNodeId].toFixed(1)} min
               </span>
             )}
           </div>
           <Progress value={progressValue} className="h-2" />
           {paths[destinationNodeId] && paths[destinationNodeId].length > 0 && (
-            <div className="text-xs text-gray-500 mt-2">
+            <div className={`text-xs mt-2 ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
               Path: {paths[destinationNodeId].join(' → ')}
             </div>
           )}
@@ -103,7 +105,7 @@ const ResultsPanel: React.FC<ResultsPanelProps> = ({
       )}
       
       <div className="space-y-2">
-        <h4 className="text-sm font-semibold text-gray-700 mb-2">
+        <h4 className={`text-sm font-semibold mb-2 ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
           {destinationNodeId ? 'All Locations' : 'Select Destination'}
         </h4>
         
@@ -124,11 +126,16 @@ const ResultsPanel: React.FC<ResultsPanelProps> = ({
             return (
               <div 
                 key={node.id} 
-                className={`border-b pb-2 last:border-b-0 cursor-pointer transition-colors ${isSelected ? 'bg-gray-50' : 'hover:bg-gray-50'} p-2 rounded-md`}
+                className={`border-b pb-2 last:border-b-0 cursor-pointer transition-colors 
+                  ${isDarkMode 
+                    ? isSelected ? 'bg-gray-700 border-gray-600' : 'hover:bg-gray-700 border-gray-700' 
+                    : isSelected ? 'bg-gray-50' : 'hover:bg-gray-50 border-gray-200'
+                  } 
+                  p-2 rounded-md`}
                 onClick={() => onDestinationSelect(node.id)}
               >
                 <div className="flex justify-between">
-                  <span className={`font-medium ${isSelected ? 'text-primary' : ''}`}>
+                  <span className={`font-medium ${isSelected ? 'text-primary' : isDarkMode ? 'text-white' : ''}`}>
                     {node.name} ({node.id})
                   </span>
                   <span className={
@@ -148,7 +155,7 @@ const ResultsPanel: React.FC<ResultsPanelProps> = ({
                   </span>
                 </div>
                 {hasPath && !isSelected && (
-                  <div className="text-xs text-gray-500 mt-1">
+                  <div className={`text-xs mt-1 ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
                     Path: {path.join(' → ')}
                   </div>
                 )}

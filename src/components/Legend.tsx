@@ -21,8 +21,11 @@ const Legend: React.FC<LegendProps> = ({ isDarkMode = false }) => {
           return (
             <div key={index} className="flex items-center">
               <div 
-                className="w-6 h-6 rounded mr-2 shadow-sm" 
-                style={{ backgroundColor: bucket.color }}
+                className="w-6 h-6 rounded mr-2 shadow-sm border" 
+                style={{ 
+                  backgroundColor: bucket.color,
+                  borderColor: isDarkMode ? 'rgba(255, 255, 255, 0.2)' : 'rgba(0, 0, 0, 0.1)'
+                }}
               />
               <span className={isDarkMode ? 'text-white' : ''}>
                 {timeLabel}
@@ -36,8 +39,11 @@ const Legend: React.FC<LegendProps> = ({ isDarkMode = false }) => {
         
         <div className="flex items-center mt-1">
           <div 
-            className="w-6 h-6 rounded mr-2 shadow-sm" 
-            style={{ backgroundColor: '#d1d5db' }}
+            className="w-6 h-6 rounded mr-2 shadow-sm border" 
+            style={{ 
+              backgroundColor: isDarkMode ? '#64748b' : '#d1d5db',
+              borderColor: isDarkMode ? 'rgba(255, 255, 255, 0.2)' : 'rgba(0, 0, 0, 0.1)'
+            }}
           />
           <span className={isDarkMode ? 'text-white' : ''}>Not on shortest path</span>
         </div>

@@ -48,13 +48,13 @@
   }
 
   .dark {
-    --background: 222.2 84% 4.9%;
+    --background: 222.2 24% 10%;
     --foreground: 210 40% 98%;
 
-    --card: 222.2 84% 4.9%;
+    --card: 222.2 24% 12%;
     --card-foreground: 210 40% 98%;
 
-    --popover: 222.2 84% 4.9%;
+    --popover: 222.2 24% 12%;
     --popover-foreground: 210 40% 98%;
 
     --primary: 265 89% 78%;
@@ -63,25 +63,26 @@
     --secondary: 217.2 32.6% 17.5%;
     --secondary-foreground: 210 40% 98%;
 
-    --muted: 217.2 32.6% 17.5%;
-    --muted-foreground: 215 20.2% 65.1%;
+    --muted: 217.2 32.6% 20%;
+    --muted-foreground: 215 20.2% 75%;
 
-    --accent: 217.2 32.6% 17.5%;
+    --accent: 217.2 32.6% 20%;
     --accent-foreground: 210 40% 98%;
 
-    --destructive: 0 62.8% 30.6%;
+    --destructive: 0 62.8% 40.6%;
     --destructive-foreground: 210 40% 98%;
 
-    --border: 217.2 32.6% 17.5%;
-    --input: 217.2 32.6% 17.5%;
+    --border: 217.2 32.6% 20%;
+    --input: 217.2 32.6% 20%;
     --ring: 212.7 26.8% 83.9%;
-    --sidebar-background: 240 5.9% 10%;
+    
+    --sidebar-background: 222.2 24% 15%;
     --sidebar-foreground: 240 4.8% 95.9%;
-    --sidebar-primary: 224.3 76.3% 48%;
+    --sidebar-primary: 265 89% 78%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 240 3.7% 15.9%;
+    --sidebar-accent: 240 3.7% 20%;
     --sidebar-accent-foreground: 240 4.8% 95.9%;
-    --sidebar-border: 240 3.7% 15.9%;
+    --sidebar-border: 240 3.7% 20%;
     --sidebar-ring: 217.2 91.2% 59.8%;
   }
 }
@@ -105,6 +106,10 @@
   transition: all 0.3s ease;
 }
 
+.dark .node {
+  stroke: #333;
+}
+
 .node:hover {
   stroke-width: 3px;
 }
@@ -115,12 +120,12 @@
 }
 
 .link {
-  stroke-width: 3px;
+  stroke-width: 4px;
   transition: stroke-width 0.2s ease;
 }
 
 .link:hover {
-  stroke-width: 5px;
+  stroke-width: 6px;
 }
 
 .node-label {
@@ -130,4 +135,68 @@
   font-weight: 600;
   fill: #333;
   text-shadow: 0 0 3px rgba(255, 255, 255, 0.8);
+}
+
+.dark .node-label {
+  fill: #fff;
+  text-shadow: 0 0 3px rgba(0, 0, 0, 0.8);
+}
+
+/* Custom React Flow styles */
+.react-flow__edge-path {
+  stroke-width: 3px;
+}
+
+.dark .react-flow__edge-path {
+  stroke-width: 3px;
+}
+
+.dark .react-flow__edge-text {
+  fill: #f8fafc;
+}
+
+.dark .react-flow__minimap {
+  background-color: #1e293b;
+}
+
+.dark .react-flow__minimap-mask {
+  fill: rgba(30, 41, 59, 0.7);
+}
+
+.dark .react-flow__controls-button {
+  background: #334155;
+  border-color: #475569;
+  color: #f8fafc;
+}
+
+.dark .react-flow__background {
+  background-color: #1e293b;
+}
+
+.dark .react-flow__attribution {
+  color: #cbd5e1;
+}
+
+/* Make node connections clearer */
+.react-flow__handle {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background-color: #9b87f5;
+  border: 2px solid #fff;
+}
+
+.dark .react-flow__handle {
+  border-color: #334155;
+}
+
+.react-flow__edge.animated .react-flow__edge-path {
+  stroke-dasharray: 5;
+  animation: dashdraw 1s linear infinite;
+}
+
+@keyframes dashdraw {
+  from {
+    stroke-dashoffset: 10;
+  }
 }

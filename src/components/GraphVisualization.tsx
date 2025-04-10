@@ -53,17 +53,18 @@ const GraphVisualization: React.FC<GraphVisualizationProps> = ({
           isDestination
         },
         style: {
-          background: isSource ? '#9b87f5' : isDestination ? '#ef4444' : isDarkMode ? '#64748b' : '#64748b',
-          color: isSource || isDestination ? 'white' : isDarkMode ? 'white' : 'white',
-          border: isSource || isDestination ? '2px solid' : '1px solid #ddd',
+          background: isSource ? '#9b87f5' : isDestination ? '#ef4444' : isDarkMode ? '#475569' : '#64748b',
+          color: 'white',
+          border: '2px solid',
           borderColor: isSource ? '#9b87f5' : isDestination ? '#ef4444' : 'transparent',
-          width: 100,
-          height: 50,
+          width: 120,
+          height: 60,
           borderRadius: 8,
           display: 'flex',
           justifyContent: 'center',
           alignItems: 'center',
-          fontWeight: isSource || isDestination ? 'bold' : 'normal'
+          fontWeight: isSource || isDestination ? 'bold' : 'normal',
+          boxShadow: isDarkMode ? '0 4px 6px -1px rgba(0, 0, 0, 0.5)' : '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
         }
       };
     });
@@ -75,7 +76,8 @@ const GraphVisualization: React.FC<GraphVisualizationProps> = ({
     
     return coloredEdges.map((edge, index) => {
       const isOnPath = edge.isOnPath || false;
-      const edgeColor = isOnPath ? edge.color : isDarkMode ? '#4b5563' : '#d1d5db';
+      const edgeColor = isOnPath ? edge.color : isDarkMode ? '#64748b' : '#cbd5e1';
+      const edgeWidth = isOnPath ? 3 : 2;
       
       return {
         id: `e-${edge.source}-${edge.target}`,
@@ -84,8 +86,8 @@ const GraphVisualization: React.FC<GraphVisualizationProps> = ({
         animated: isOnPath,
         style: { 
           stroke: edgeColor,
-          strokeWidth: isOnPath ? 3 : 1,
-          opacity: isOnPath ? 1 : 0.6
+          strokeWidth: edgeWidth,
+          opacity: isOnPath ? 1 : isDarkMode ? 0.7 : 0.6
         },
         markerEnd: {
           type: MarkerType.ArrowClosed,
@@ -143,8 +145,8 @@ const GraphVisualization: React.FC<GraphVisualizationProps> = ({
     
     return (
       <div 
-        className={`absolute p-2 rounded shadow-lg text-xs z-10 ${
-          isDarkMode ? 'bg-gray-800 text-white' : 'bg-white text-gray-800'
+        className={`absolute p-3 rounded-lg shadow-lg text-sm z-10 ${
+          isDarkMode ? 'bg-gray-800 text-white border border-gray-700' : 'bg-white text-gray-800 border border-gray-200'
         }`}
         style={{ 
           left: x, 
@@ -153,11 +155,12 @@ const GraphVisualization: React.FC<GraphVisualizationProps> = ({
           pointerEvents: 'none'
         }}
       >
-        <div>From: {sourceNode.name} ({sourceNode.id})</div>
+        <div className="font-medium">Edge Information</div>
+        <div className="mt-1">From: {sourceNode.name} ({sourceNode.id})</div>
         <div>To: {targetNode.name} ({targetNode.id})</div>
         <div>Travel time: {travelTime} min</div>
         <div>Total time: {arrivalTime} min</div>
-        {hoveredEdge.isOnPath && <div className="font-bold text-purple-500">On selected path</div>}
+        {hoveredEdge.isOnPath && <div className="font-bold text-purple-500 mt-1">★ On selected path</div>}
       </div>
     );
   };
@@ -170,9 +173,12 @@ const GraphVisualization: React.FC<GraphVisualizationProps> = ({
   }, [graph, coloredEdges, sourceNodeId, destinationNodeId]);
 
   return (
-    <div className={`w-full h-full overflow-hidden relative ${isDarkMode ? 'bg-gray-800' : 'bg-white'}`} style={{ height: '600px' }}>
+    <div 
+      className={`w-full h-full overflow-hidden relative rounded-lg ${isDarkMode ? 'bg-gray-800' : 'bg-white'}`} 
+      style={{ height: '600px' }}
+    >
       {isAnimating && (
-        <div className="absolute top-2 right-2 bg-primary text-white px-2 py-1 rounded text-xs z-10">
+        <div className="absolute top-2 right-2 bg-primary text-white px-3 py-1.5 rounded-full text-xs z-10 font-medium animate-pulse-opacity">
           Calculating routes...
         </div>
       )}
@@ -187,22 +193,31 @@ const GraphVisualization: React.FC<GraphVisualizationProps> = ({
         minZoom={0.5}
         maxZoom={2}
         attributionPosition="bottom-right"
+        proOptions={{ hideAttribution: true }}
       >
-        <Controls />
+        <Controls 
+          className={isDarkMode ? 'bg-gray-800 border-gray-700 text-white' : ''}
+          position="bottom-right"
+          showInteractive={false}
+        />
         <MiniMap
           nodeColor={node => {
             const n = node as FlowNode;
             if (n.data.isSource) return '#9b87f5';
             if (n.data.isDestination) return '#ef4444';
-            return isDarkMode ? '#64748b' : '#64748b';
+            return isDarkMode ? '#475569' : '#64748b';
           }}
           maskColor={isDarkMode ? 'rgba(31, 41, 55, 0.5)' : 'rgba(255, 255, 255, 0.5)'}
           style={{
-            backgroundColor: isDarkMode ? '#1f2937' : 'white',
-            border: '1px solid #e5e7eb'
+            backgroundColor: isDarkMode ? '#1e293b' : 'white',
+            border: isDarkMode ? '1px solid #334155' : '1px solid #e5e7eb'
           }}
         />
-        <Background color={isDarkMode ? '#374151' : '#f3f4f6'} gap={16} />
+        <Background 
+          color={isDarkMode ? '#334155' : '#f3f4f6'} 
+          gap={16} 
+          size={1}
+        />
         
         {/* Edge Tooltip */}
         {hoveredEdge && <EdgeTooltip />}
