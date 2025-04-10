@@ -149,32 +149,54 @@ const GraphVisualization: React.FC<GraphVisualizationProps> = ({
       }
     });
     
-    // Sort paths by arrival time to ensure proper drawing order (shorter paths on top)
-    const pathEdges = coloredEdges.filter(edge => edge.isOnPath)
-      .sort((a, b) => (a.arrivalTime || 0) - (b.arrivalTime || 0));
+    // Get only path edges that actually have valid nodes in the graph
+    const pathEdges = coloredEdges.filter(edge => {
+      const sourceExists = graph.nodes.some(n => n.id === edge.source);
+      const targetExists = graph.nodes.some(n => n.id === edge.target);
+      return edge.isOnPath && sourceExists && targetExists;
+    });
+    
+    // Safely sort paths by arrival time (handling undefined/null values)
+    const sortedPathEdges = [...pathEdges].sort((a, b) => {
+      const timeA = a.arrivalTime ?? Infinity;
+      const timeB = b.arrivalTime ?? Infinity;
+      return timeA - timeB;
+    });
       
     // Organize path edges into a sequence if possible
     const selectedPath: ColoredEdge[] = [];
-    if (destinationNodeId) {
+    
+    if (destinationNodeId && sourceNodeId) {
       let currentNodeId = sourceNodeId;
+      const processedEdges = new Set<string>();
+      const maxIterations = sortedPathEdges.length * 2; // Safety limit to prevent infinite loops
+      let iterations = 0;
       
-      while (currentNodeId !== destinationNodeId) {
-        // Find the next edge in the path
-        const nextEdge = pathEdges.find(edge => 
-          (edge.source === currentNodeId && edge.target !== currentNodeId) || 
-          (edge.target === currentNodeId && edge.source !== currentNodeId)
-        );
+      // Try to find a path from source to destination
+      while (currentNodeId !== destinationNodeId && iterations < maxIterations) {
+        iterations++;
+        
+        // Find the next edge in the path that hasn't been processed yet
+        const nextEdge = sortedPathEdges.find(edge => {
+          const edgeId = `${edge.source}-${edge.target}`;
+          if (processedEdges.has(edgeId)) return false;
+          
+          return (edge.source === currentNodeId || edge.target === currentNodeId);
+        });
         
         if (!nextEdge) break;
         
+        // Mark this edge as processed
+        processedEdges.add(`${nextEdge.source}-${nextEdge.target}`);
         selectedPath.push(nextEdge);
+        
         // Move to the next node
         currentNodeId = nextEdge.source === currentNodeId ? nextEdge.target : nextEdge.source;
       }
     }
     
-    // If we couldn't organize the path, use all path edges
-    const edgesToDraw = selectedPath.length > 0 ? selectedPath : pathEdges;
+    // If we couldn't organize the path or there's no destination set, use all path edges
+    const edgesToDraw = selectedPath.length > 0 ? selectedPath : sortedPathEdges;
     
     // Now draw all path edges with proper animation and direction
     edgesToDraw.forEach(edge => {
@@ -183,36 +205,31 @@ const GraphVisualization: React.FC<GraphVisualizationProps> = ({
       
       if (sourceNode && targetNode) {
         // Determine correct direction along the path
-        let fromNode, toNode;
-        const directedPath = pathEdges.some(e => e.source === sourceNodeId);
+        let fromNode = sourceNode;
+        let toNode = targetNode;
         
-        // For the first edge from source
+        // For the first edge from source, ensure direction starts from source
         if (edge.source === sourceNodeId || edge.target === sourceNodeId) {
-          fromNode = graph.nodes.find(n => n.id === sourceNodeId)!;
+          fromNode = graph.nodes.find(n => n.id === sourceNodeId) || sourceNode;
           toNode = fromNode.id === sourceNode.id ? targetNode : sourceNode;
         } 
         // For subsequent edges, determine direction by checking previous node
-        else {
-          // Default (if direction can't be determined)
-          fromNode = sourceNode;
-          toNode = targetNode;
-          
-          // Try to establish correct direction
-          if (selectedPath.length > 0) {
-            const index = selectedPath.indexOf(edge);
-            if (index > 0) {
-              const prevEdge = selectedPath[index - 1];
-              const prevToNode = prevEdge.source === sourceNode.id || prevEdge.target === sourceNode.id
-                ? sourceNode : targetNode;
-              
-              // If the previous edge ends at this source node, direction is source→target
-              if (prevToNode.id === sourceNode.id) {
-                fromNode = sourceNode;
-                toNode = targetNode;
-              } else {
-                fromNode = targetNode;
-                toNode = sourceNode;
-              }
+        else if (selectedPath.length > 0) {
+          const index = selectedPath.indexOf(edge);
+          if (index > 0) {
+            const prevEdge = selectedPath[index - 1];
+            const prevToNodeId = prevEdge.source === prevEdge.target ? prevEdge.source : 
+                                 (prevEdge.source === sourceNode.id || prevEdge.target === sourceNode.id)
+                                  ? (prevEdge.source === sourceNode.id ? prevEdge.target : prevEdge.source)
+                                  : (prevEdge.target === targetNode.id ? prevEdge.source : prevEdge.target);
+            
+            // If the previous edge ends at this source node, direction is source→target
+            if (prevToNodeId === sourceNode.id) {
+              fromNode = sourceNode;
+              toNode = targetNode;
+            } else if (prevToNodeId === targetNode.id) {
+              fromNode = targetNode;
+              toNode = sourceNode;
             }
           }
         }

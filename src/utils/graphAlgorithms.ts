@@ -141,6 +141,11 @@ export const getColoredEdges = (
       const source = path[i];
       const target = path[i + 1];
       
+      // Skip if source or target doesn't exist in the graph
+      if (!graph.nodes.some(n => n.id === source) || !graph.nodes.some(n => n.id === target)) {
+        continue;
+      }
+      
       // Add this specific directed segment to the path set
       const edgeKey = `${source}-${target}`;
       pathEdges.add(edgeKey);
