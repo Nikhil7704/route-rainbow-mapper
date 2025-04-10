@@ -49,12 +49,13 @@ const GraphVisualization: React.FC<GraphVisualizationProps> = ({
 
     setIsAnimating(true);
 
+    // Clear existing SVG content
     d3.select(svgRef.current).selectAll('*').remove();
 
     const svg = d3.select(svgRef.current);
-    
     const g = svg.append('g');
 
+    // Set up zoom behavior
     const zoom = d3.zoom<SVGSVGElement, unknown>()
       .scaleExtent([0.5, 3])
       .on('zoom', (event) => {
@@ -63,8 +64,10 @@ const GraphVisualization: React.FC<GraphVisualizationProps> = ({
 
     svg.call(zoom);
 
+    // Define SVG filters, gradients and markers
     const defs = svg.append('defs');
     
+    // Create animated gradient for path animation
     const gradient = defs.append('linearGradient')
       .attr('id', 'path-gradient')
       .attr('gradientUnits', 'userSpaceOnUse')
@@ -86,6 +89,7 @@ const GraphVisualization: React.FC<GraphVisualizationProps> = ({
       .attr('offset', '100%')
       .attr('stop-color', isDarkMode ? '#1e293b' : '#f1f5f9');
     
+    // Add animation to the gradient
     gradient.append('animateTransform')
       .attr('attributeName', 'gradientTransform')
       .attr('type', 'translate')
@@ -93,7 +97,8 @@ const GraphVisualization: React.FC<GraphVisualizationProps> = ({
       .attr('to', '1')
       .attr('dur', '3s')
       .attr('repeatCount', 'indefinite');
-      
+    
+    // Create arrow marker for path direction  
     defs.append("marker")
       .attr("id", "arrowhead")
       .attr("viewBox", "0 -5 10 10")
@@ -106,6 +111,7 @@ const GraphVisualization: React.FC<GraphVisualizationProps> = ({
       .attr("d", "M0,-5L10,0L0,5")
       .attr("fill", isDarkMode ? "#9b87f5" : "#9b87f5");
 
+    // Create glow filter for highlighted paths
     const filter = defs.append('filter')
       .attr('id', 'glow')
       .attr('x', '-20%')
@@ -121,12 +127,13 @@ const GraphVisualization: React.FC<GraphVisualizationProps> = ({
     feMerge.append('feMergeNode').attr('in', 'coloredBlur');
     feMerge.append('feMergeNode').attr('in', 'SourceGraphic');
 
-    // Draw all non-path edges first
+    // First draw all non-path edges as background
     coloredEdges.filter(edge => !edge.isOnPath).forEach(edge => {
       const sourceNode = graph.nodes.find(n => n.id === edge.source);
       const targetNode = graph.nodes.find(n => n.id === edge.target);
       
       if (sourceNode && targetNode) {
+        // Create a line for each edge
         const line = g.append('line')
           .attr('class', 'link')
           .attr('x1', sourceNode.x)
@@ -137,20 +144,78 @@ const GraphVisualization: React.FC<GraphVisualizationProps> = ({
           .attr('stroke-width', 2)
           .style('opacity', 0.4);
           
+        // Add interactivity to the edge
         addEdgeInteractivity(line, edge, sourceNode, targetNode);
       }
     });
     
-    // Now draw all path edges with proper animation
-    coloredEdges.filter(edge => edge.isOnPath).forEach(edge => {
+    // Sort paths by arrival time to ensure proper drawing order (shorter paths on top)
+    const pathEdges = coloredEdges.filter(edge => edge.isOnPath)
+      .sort((a, b) => (a.arrivalTime || 0) - (b.arrivalTime || 0));
+      
+    // Organize path edges into a sequence if possible
+    const selectedPath: ColoredEdge[] = [];
+    if (destinationNodeId) {
+      let currentNodeId = sourceNodeId;
+      
+      while (currentNodeId !== destinationNodeId) {
+        // Find the next edge in the path
+        const nextEdge = pathEdges.find(edge => 
+          (edge.source === currentNodeId && edge.target !== currentNodeId) || 
+          (edge.target === currentNodeId && edge.source !== currentNodeId)
+        );
+        
+        if (!nextEdge) break;
+        
+        selectedPath.push(nextEdge);
+        // Move to the next node
+        currentNodeId = nextEdge.source === currentNodeId ? nextEdge.target : nextEdge.source;
+      }
+    }
+    
+    // If we couldn't organize the path, use all path edges
+    const edgesToDraw = selectedPath.length > 0 ? selectedPath : pathEdges;
+    
+    // Now draw all path edges with proper animation and direction
+    edgesToDraw.forEach(edge => {
       const sourceNode = graph.nodes.find(n => n.id === edge.source);
       const targetNode = graph.nodes.find(n => n.id === edge.target);
       
       if (sourceNode && targetNode) {
-        // Calculate the direction for the marker
-        const isForward = sourceNode.id === edge.source;
-        const fromNode = isForward ? sourceNode : targetNode;
-        const toNode = isForward ? targetNode : sourceNode;
+        // Determine correct direction along the path
+        let fromNode, toNode;
+        const directedPath = pathEdges.some(e => e.source === sourceNodeId);
+        
+        // For the first edge from source
+        if (edge.source === sourceNodeId || edge.target === sourceNodeId) {
+          fromNode = graph.nodes.find(n => n.id === sourceNodeId)!;
+          toNode = fromNode.id === sourceNode.id ? targetNode : sourceNode;
+        } 
+        // For subsequent edges, determine direction by checking previous node
+        else {
+          // Default (if direction can't be determined)
+          fromNode = sourceNode;
+          toNode = targetNode;
+          
+          // Try to establish correct direction
+          if (selectedPath.length > 0) {
+            const index = selectedPath.indexOf(edge);
+            if (index > 0) {
+              const prevEdge = selectedPath[index - 1];
+              const prevToNode = prevEdge.source === sourceNode.id || prevEdge.target === sourceNode.id
+                ? sourceNode : targetNode;
+              
+              // If the previous edge ends at this source node, direction is source→target
+              if (prevToNode.id === sourceNode.id) {
+                fromNode = sourceNode;
+                toNode = targetNode;
+              } else {
+                fromNode = targetNode;
+                toNode = sourceNode;
+              }
+            }
+          }
+        }
         
         // Create a path with directional arrow
         const line = g.append('path')
@@ -163,6 +228,7 @@ const GraphVisualization: React.FC<GraphVisualizationProps> = ({
           .style('opacity', 0)
           .attr('filter', 'url(#glow)');
           
+        // Animate the path drawing
         const pathLength = line.node()?.getTotalLength() || 0;
         line.attr('stroke-dasharray', pathLength)
           .attr('stroke-dashoffset', pathLength)
@@ -171,23 +237,28 @@ const GraphVisualization: React.FC<GraphVisualizationProps> = ({
           .attr('stroke-dashoffset', 0)
           .style('opacity', 1);
         
+        // Add hover interaction
         addEdgeInteractivity(line, edge, fromNode, toNode);
       }
     });
 
+    // Helper function to add interactivity to edges
     function addEdgeInteractivity(element: any, edge: ColoredEdge, sourceNode: GraphNode, targetNode: GraphNode) {
       element.on('mouseover', function(event: MouseEvent) {
+          // Highlight on hover
           d3.select(this)
             .transition()
             .duration(200)
             .attr('stroke-width', edge.isOnPath ? 6 : 3)
             .style('opacity', 1);
             
+          // Show tooltip
           const tooltip = d3.select('#edge-tooltip');
           tooltip.style('display', 'block')
             .style('left', (event.pageX + 10) + 'px')
             .style('top', (event.pageY - 20) + 'px');
             
+          // Format time values
           const travelTime = typeof edge.weight === 'number' 
             ? edge.weight.toFixed(1) 
             : 'Unknown';
@@ -196,6 +267,7 @@ const GraphVisualization: React.FC<GraphVisualizationProps> = ({
             ? edge.arrivalTime.toFixed(1) 
             : 'N/A';
             
+          // Populate tooltip content
           tooltip.html(`
             <div class="p-2">
               <div>From: ${sourceNode.name} (${sourceNode.id})</div>
@@ -207,25 +279,30 @@ const GraphVisualization: React.FC<GraphVisualizationProps> = ({
           `);
         })
         .on('mouseout', function() {
+          // Reset on mouseout
           d3.select(this)
             .transition()
             .duration(200)
             .attr('stroke-width', edge.isOnPath ? 4 : 2)
             .style('opacity', edge.isOnPath ? 1 : 0.4);
             
+          // Hide tooltip
           d3.select('#edge-tooltip').style('display', 'none');
         });
     }
 
+    // Draw nodes on top of edges
     graph.nodes.forEach(node => {
       const isSource = node.id === sourceNodeId;
       const isDestination = node.id === destinationNodeId;
       
+      // Create node group
       const nodeGroup = g.append('g')
         .attr('transform', `translate(${node.x}, ${node.y})`)
         .attr('cursor', 'pointer')
         .on('click', () => onNodeClick(node.id));
 
+      // Add highlight circle for source/destination
       if (isSource || isDestination) {
         nodeGroup.append('circle')
           .attr('r', 24)
@@ -239,20 +316,24 @@ const GraphVisualization: React.FC<GraphVisualizationProps> = ({
           .attr('opacity', 1);
       }
 
+      // Add main node circle
       const nodeCircle = nodeGroup.append('circle')
         .attr('class', `node ${node.id === sourceNodeId ? 'selected' : ''}`)
         .attr('r', 20)
         .attr('fill', isSource ? '#9b87f5' : isDestination ? '#ef4444' : isDarkMode ? '#64748b' : '#64748b')
         .attr('opacity', 0);
         
+      // Animate node appearance
       nodeCircle.transition()
         .duration(500)
         .attr('opacity', 1)
         .on('end', () => setIsAnimating(false));
       
+      // Add hover title
       nodeCircle.append('title')
         .text(`${node.name} (${node.id})`);
 
+      // Add node label
       nodeGroup.append('text')
         .attr('class', 'node-label')
         .attr('dy', 4)
@@ -261,6 +342,7 @@ const GraphVisualization: React.FC<GraphVisualizationProps> = ({
         .style('font-weight', isSource || isDestination ? 'bold' : 'normal');
     });
 
+    // Center and zoom the graph appropriately
     const minX = Math.min(...graph.nodes.map(n => n.x));
     const maxX = Math.max(...graph.nodes.map(n => n.x));
     const minY = Math.min(...graph.nodes.map(n => n.y));

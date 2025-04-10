@@ -1,3 +1,4 @@
+
 import { Graph, Edge, TrafficLevel, trafficMultipliers, ColoredEdge } from './sampleData';
 
 // Dijkstra's Algorithm to calculate shortest paths from source
@@ -23,7 +24,7 @@ export const dijkstra = (
   // Traffic multiplier to adjust edge weights
   const trafficMultiplier = trafficMultipliers[trafficLevel];
   
-  // Dijkstra's algorithm
+  // Process nodes
   while (unvisited.size > 0) {
     // Find node with minimum distance
     let currentNode: string | null = null;
@@ -44,19 +45,19 @@ export const dijkstra = (
     // Remove current node from unvisited
     unvisited.delete(currentNode);
     
-    // Check neighbors
+    // Process all edges connected to current node
     for (const edge of edges) {
-      // Check edges connected to current node
       if (edge.source === currentNode || edge.target === currentNode) {
+        // Determine the neighbor node (since edges are bidirectional)
         const neighbor = edge.source === currentNode ? edge.target : edge.source;
         
-        // Skip if neighbor has been visited
+        // Skip if neighbor has been processed
         if (!unvisited.has(neighbor)) continue;
         
         // Calculate adjusted weight with traffic
         const adjustedWeight = edge.weight * trafficMultiplier;
         
-        // Calculate tentative distance
+        // Calculate tentative distance through current node
         const tentativeDistance = distances[currentNode] + adjustedWeight;
         
         // Update if tentative distance is shorter
@@ -68,23 +69,27 @@ export const dijkstra = (
     }
   }
   
-  // Reconstruct paths
+  // Reconstruct shortest paths
   const paths: Record<string, string[]> = {};
   
   for (const node of nodes) {
+    // Source to itself is a single-node path
     if (node === sourceId) {
       paths[node] = [node];
       continue;
     }
     
-    if (previous[node] === null) {
-      paths[node] = []; // No path
+    // No path to this node
+    if (previous[node] === null || distances[node] === Infinity) {
+      paths[node] = [];
       continue;
     }
     
+    // Reconstruct path by tracing back through previous nodes
     const path: string[] = [];
     let current: string | null = node;
     
+    // Follow the chain of previous nodes
     while (current !== null) {
       path.unshift(current);
       current = previous[current];
@@ -104,86 +109,84 @@ export const getColoredEdges = (
   getColorForTime: (time: number) => string,
   destinationId: string | null = null
 ): ColoredEdge[] => {
-  // Get shortest paths
+  // Get shortest paths using Dijkstra's algorithm
   const { distances, paths } = dijkstra(graph, sourceId, trafficLevel);
   
-  // Create a map for quick access to edge weights
+  // Create a map for edge travel times (adjusted for traffic)
   const edgeWeights: Record<string, number> = {};
   for (const edge of graph.edges) {
-    // Create a key for the edge (both directions)
+    // Create a unique key for each edge (both directions)
     const key1 = `${edge.source}-${edge.target}`;
     const key2 = `${edge.target}-${edge.source}`;
     
-    // Traffic multiplier
+    // Apply traffic multiplier to edge weight
     const multiplier = trafficMultipliers[trafficLevel];
+    const adjustedWeight = edge.weight * multiplier;
     
-    // Store the weighted time
-    edgeWeights[key1] = edge.weight * multiplier;
-    edgeWeights[key2] = edge.weight * multiplier;
+    // Store the adjusted travel time
+    edgeWeights[key1] = adjustedWeight;
+    edgeWeights[key2] = adjustedWeight;
   }
   
-  // Create colored edges
-  const coloredEdges: ColoredEdge[] = [];
-  
-  // Create a set of edges that are on the highlighted path
+  // Create a set to track edges that are on the highlighted path
   const pathEdges = new Set<string>();
+  const pathDirections = new Map<string, boolean>(); // track edge directions on path
   
-  // If we have a destination, mark all edges on that path
-  if (destinationId && paths[destinationId]?.length > 0) {
-    const pathToHighlight = paths[destinationId];
+  // If we have a destination, identify all edges on that path
+  if (destinationId && paths[destinationId]?.length > 1) {
+    const path = paths[destinationId];
     
-    // Mark edges on the path
-    for (let i = 0; i < pathToHighlight.length - 1; i++) {
-      const source = pathToHighlight[i];
-      const target = pathToHighlight[i + 1];
+    // Mark each segment along the path
+    for (let i = 0; i < path.length - 1; i++) {
+      const source = path[i];
+      const target = path[i + 1];
       
-      // Add both directions to the set (we don't know which way the edge is stored)
-      pathEdges.add(`${source}-${target}`);
-      pathEdges.add(`${target}-${source}`);
+      // Add this specific directed segment to the path set
+      const edgeKey = `${source}-${target}`;
+      pathEdges.add(edgeKey);
+      pathEdges.add(`${target}-${source}`); // Add reverse direction for matching
+      
+      // Mark this edge's direction on the path (true = source→target is forward)
+      pathDirections.set(edgeKey, true);
+      pathDirections.set(`${target}-${source}`, false);
     }
   }
   
-  // For each edge, determine if it's on the path
+  // Create colored edges for each edge in the graph
+  const coloredEdges: ColoredEdge[] = [];
+  
   for (const edge of graph.edges) {
-    const edgeKey1 = `${edge.source}-${edge.target}`;
-    const edgeKey2 = `${edge.target}-${edge.source}`;
+    // Check if this edge is on any highlighted path
+    const forwardKey = `${edge.source}-${edge.target}`;
+    const reverseKey = `${edge.target}-${edge.source}`;
+    const isOnPath = pathEdges.has(forwardKey) || pathEdges.has(reverseKey);
     
-    const isOnHighlightedPath = pathEdges.has(edgeKey1) || pathEdges.has(edgeKey2);
-    
-    // Determine the color and arrival time for this edge
-    let color = "#d1d5db"; // Default gray for unused edges
+    // Determine arrival time at the end of this edge
     let arrivalTime = -1;
+    let color = "#d1d5db"; // Default color for unused edges
     
-    // If the edge connects to the source, calculate arrival time
-    if (edge.source === sourceId || edge.target === sourceId) {
+    if (isOnPath && destinationId) {
+      // For edges on the path, determine direction and arrival time
+      const isForward = pathDirections.get(forwardKey) === true;
+      const target = isForward ? edge.target : edge.source;
+      
+      // Arrival time is the total distance to that node
+      arrivalTime = distances[target];
+      color = getColorForTime(arrivalTime);
+    } 
+    // For edges from source that aren't on the main path
+    else if (edge.source === sourceId || edge.target === sourceId) {
       const neighbor = edge.source === sourceId ? edge.target : edge.source;
       arrivalTime = distances[neighbor];
       color = getColorForTime(arrivalTime);
-    } 
-    // If the edge is part of a path but not connected to source
-    else if (isOnHighlightedPath && destinationId) {
-      // Find where this edge occurs in the path
-      const path = paths[destinationId];
-      for (let i = 0; i < path.length - 1; i++) {
-        const source = path[i];
-        const target = path[i + 1];
-        
-        if ((edge.source === source && edge.target === target) || 
-            (edge.source === target && edge.target === source)) {
-          // For paths, use the arrival time at the target node
-          arrivalTime = distances[target];
-          color = getColorForTime(arrivalTime);
-          break;
-        }
-      }
     }
     
-    // Create the colored edge
+    // Create the colored edge with path information
     const coloredEdge: ColoredEdge = {
       ...edge,
-      color: isOnHighlightedPath ? color : "#d1d5db", // Gray for unused edges
+      color: isOnPath ? color : "#d1d5db", // Gray for unused edges
       arrivalTime: arrivalTime,
-      isOnPath: isOnHighlightedPath
+      isOnPath: isOnPath
     };
     
     coloredEdges.push(coloredEdge);
