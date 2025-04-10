@@ -1,3 +1,4 @@
+
 import React, { useEffect, useRef, useState } from 'react';
 import * as d3 from 'd3';
 import { Graph, Node as GraphNode, ColoredEdge, TrafficLevel } from '../utils/sampleData';
@@ -127,7 +128,7 @@ const GraphVisualization: React.FC<GraphVisualizationProps> = ({
     feMerge.append('feMergeNode').attr('in', 'SourceGraphic');
 
     // Create a defensive copy of coloredEdges to avoid mutation
-    const safeColoredEdges = [...coloredEdges].filter(edge => {
+    const safeColoredEdges = [...(coloredEdges || [])].filter(edge => {
       // Make sure the edge has valid nodes in the graph
       const sourceExists = graph.nodes.some(n => n.id === edge.source);
       const targetExists = graph.nodes.some(n => n.id === edge.target);
@@ -163,40 +164,66 @@ const GraphVisualization: React.FC<GraphVisualizationProps> = ({
     
     // Safely sort paths by arrival time (handling undefined/null values)
     const sortedPathEdges = [...pathEdges].sort((a, b) => {
-      const timeA = typeof a.arrivalTime === 'number' ? a.arrivalTime : Infinity;
-      const timeB = typeof b.arrivalTime === 'number' ? b.arrivalTime : Infinity;
+      const timeA = typeof a.arrivalTime === 'number' && !isNaN(a.arrivalTime) ? a.arrivalTime : Infinity;
+      const timeB = typeof b.arrivalTime === 'number' && !isNaN(b.arrivalTime) ? b.arrivalTime : Infinity;
       return timeA - timeB;
     });
-      
+    
     // Organize path edges into a sequence if possible
     const selectedPath: ColoredEdge[] = [];
     
     if (destinationNodeId && sourceNodeId) {
-      let currentNodeId = sourceNodeId;
-      const processedEdges = new Set<string>();
-      const maxIterations = Math.min(100, sortedPathEdges.length * 2); // Safety limit to prevent infinite loops
-      let iterations = 0;
+      // Get the full path from the dijkstra results
+      // We need to reconstruct the complete path from source to destination
+      const nodePath: Set<string> = new Set();
       
-      // Try to find a path from source to destination
-      while (currentNodeId !== destinationNodeId && iterations < maxIterations && currentNodeId) {
-        iterations++;
+      // Find the actual path edges that should be highlighted
+      // First, find all edges that are marked as on the path
+      const pathNodesVisited = new Set<string>();
+      pathNodesVisited.add(sourceNodeId);
+      let pathComplete = false;
+      
+      // Continue adding edges to the path until we reach the destination or run out of edges
+      while (!pathComplete && selectedPath.length < sortedPathEdges.length * 2) {
+        let foundNextEdge = false;
         
-        // Find the next edge in the path that hasn't been processed yet
-        const nextEdge = sortedPathEdges.find(edge => {
-          const edgeId = `${edge.source}-${edge.target}`;
-          if (processedEdges.has(edgeId)) return false;
+        // Find an edge that connects to our current path
+        for (const edge of sortedPathEdges) {
+          // Skip edges we've already added
+          if (selectedPath.includes(edge)) continue;
           
-          return (edge.source === currentNodeId || edge.target === currentNodeId);
-        });
+          // Check if this edge connects to our existing path
+          const sourceVisited = pathNodesVisited.has(edge.source);
+          const targetVisited = pathNodesVisited.has(edge.target);
+          
+          // If exactly one end of the edge is in our path, we can add this edge
+          if (sourceVisited !== targetVisited) {
+            selectedPath.push(edge);
+            
+            // Add the new node to our visited set
+            if (sourceVisited) {
+              pathNodesVisited.add(edge.target);
+              // Check if we've reached our destination
+              if (edge.target === destinationNodeId) {
+                pathComplete = true;
+                break;
+              }
+            } else {
+              pathNodesVisited.add(edge.source);
+              // Check if we've reached our destination
+              if (edge.source === destinationNodeId) {
+                pathComplete = true;
+                break;
+              }
+            }
+            
+            foundNextEdge = true;
+            break;
+          }
+        }
         
-        if (!nextEdge) break;
-        
-        // Mark this edge as processed
-        processedEdges.add(`${nextEdge.source}-${nextEdge.target}`);
-        selectedPath.push(nextEdge);
-        
-        // Move to the next node
-        currentNodeId = nextEdge.source === currentNodeId ? nextEdge.target : nextEdge.source;
+        // If we didn't find any new edges to add, we're stuck
+        if (!foundNextEdge) break;
       }
     }
     
@@ -204,7 +231,7 @@ const GraphVisualization: React.FC<GraphVisualizationProps> = ({
     const edgesToDraw = selectedPath.length > 0 ? selectedPath : sortedPathEdges;
     
     // Now draw all path edges with proper animation and direction
-    edgesToDraw.forEach(edge => {
+    edgesToDraw.forEach((edge, index) => {
       const sourceNode = graph.nodes.find(n => n.id === edge.source);
       const targetNode = graph.nodes.find(n => n.id === edge.target);
       
@@ -213,26 +240,30 @@ const GraphVisualization: React.FC<GraphVisualizationProps> = ({
         let fromNode = sourceNode;
         let toNode = targetNode;
         
-        // For the first edge from source, ensure direction starts from source
-        if (edge.source === sourceNodeId || edge.target === sourceNodeId) {
-          fromNode = graph.nodes.find(n => n.id === sourceNodeId) || sourceNode;
-          toNode = fromNode.id === sourceNode.id ? targetNode : sourceNode;
-        } 
-        // For subsequent edges, determine direction by checking previous node
-        else if (selectedPath.length > 0) {
-          const index = selectedPath.indexOf(edge);
-          if (index > 0) {
-            const prevEdge = selectedPath[index - 1];
-            const prevToNodeId = prevEdge.source === prevEdge.target ? prevEdge.source : 
-                                (prevEdge.source === sourceNode.id || prevEdge.target === sourceNode.id)
-                                ? (prevEdge.source === sourceNode.id ? prevEdge.target : prevEdge.source)
-                                : (prevEdge.target === targetNode.id ? prevEdge.source : prevEdge.target);
+        // For paths with a destination, determine the correct direction
+        if (selectedPath.length > 0) {
+          // If first edge and it includes source node
+          if (index === 0 && (edge.source === sourceNodeId || edge.target === sourceNodeId)) {
+            fromNode = graph.nodes.find(n => n.id === sourceNodeId) || sourceNode;
+            toNode = fromNode.id === sourceNode.id ? targetNode : sourceNode;
+          } 
+          // For subsequent edges, connect to previous edge
+          else if (index > 0) {
+            const prevEdge = edgesToDraw[index - 1];
+            const prevFromNodeId = prevEdge.source;
+            const prevToNodeId = prevEdge.target;
             
-            // If the previous edge ends at this source node, direction is source→target
-            if (prevToNodeId === sourceNode.id) {
+            // If this edge connects to the end of the previous edge
+            if (edge.source === prevToNodeId) {
               fromNode = sourceNode;
               toNode = targetNode;
-            } else if (prevToNodeId === targetNode.id) {
+            } else if (edge.target === prevToNodeId) {
+              fromNode = targetNode;
+              toNode = sourceNode;
+            } else if (edge.source === prevFromNodeId) {
+              fromNode = sourceNode;
+              toNode = targetNode;
+            } else if (edge.target === prevFromNodeId) {
               fromNode = targetNode;
               toNode = sourceNode;
             }
